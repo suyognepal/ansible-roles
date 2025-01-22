@@ -1,0 +1,12 @@
+---
+- name: Copy MongoDB config
+  template:
+    src: "templates/mongod-config.conf.j2"
+    dest: "/etc/mongod.conf"
+  notify: 
+    - Restart Mongod
+
+- name: Restart Mongod
+  service:
+    name: mongod
+    state: restarted

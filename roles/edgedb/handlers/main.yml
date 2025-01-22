@@ -1,0 +1,23 @@
+- name: Enable and start EdgeDB service
+  ansible.builtin.systemd:
+    name: edgedb-server-5.service
+    enabled: true
+    state: started
+    daemon_reload: yes
+  become: yes
+
+- name: restart nginx
+  service:
+    name: nginx
+    state: restarted
+  listen: restart nginx
+  become: yes
+
+
+- name: Enable and start Nginx
+  service:
+    name: nginx
+    enabled: yes
+    state: started
+  listen: start and enable nginx
+  become: yes

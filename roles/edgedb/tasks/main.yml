@@ -1,0 +1,10 @@
+---
+# tasks file for edgedb
+- include_tasks: repositories.yaml
+- include_tasks: install.yaml
+- include_tasks: createdatabase.yaml
+- include_tasks: migration.yaml
+- include_tasks: createenv.yaml
+- include_tasks: expose.yaml
+- include_tasks: cloudfare.yaml
+- include_tasks: ssl.yaml

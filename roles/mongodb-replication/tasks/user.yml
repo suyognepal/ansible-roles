@@ -1,0 +1,48 @@
+---
+- name: Gather facts about all hosts
+  setup:
+
+- name: Set primary node host for running tasks
+  set_fact:
+    primary_node: "{{ hostvars[item]['ansible_host'] }}"
+  when: hostvars[item].initial_primary is defined and hostvars[item].initial_primary
+  loop: "{{ groups['all'] }}"
+  run_once: true
+  delegate_to: localhost
+
+- name: Ensure pip is installed
+  apt:
+    name: python3-pip
+    state: present
+
+- name: Ensure pymongo is installed
+  pip:
+    name: pymongo
+    state: present
+
+- name: Create MongoDB admin user with root role (no authentication required)
+  community.mongodb.mongodb_user:
+    login_host: "127.0.0.1"
+    login_port: 27017
+    database: admin
+    state: present
+    name: "{{ admin_user.username }}"
+    password: "{{ admin_user.password }}"
+    roles:
+      - { role: "root", db: "admin" }
+  delegate_to: "{{ primary_node }}"
+  ignore_errors: yes
+
+- name: Create MongoDB monitoring user (no authentication required)
+  community.mongodb.mongodb_user:
+    login_host: "127.0.0.1"
+    login_port: 27017
+    database: admin
+    state: present
+    name: "{{ monitoring_user.username }}"
+    password: "{{ monitoring_user.password }}"
+    roles:
+      - { role: "clusterMonitor", db: "admin" }
+      - { role: "readAnyDatabase", db: "admin" }
+  delegate_to: "{{ primary_node }}"
+  ignore_errors: yes

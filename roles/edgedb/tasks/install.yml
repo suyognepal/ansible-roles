@@ -1,0 +1,12 @@
+- name: Install EdgeDB
+  ansible.builtin.apt:
+    name: edgedb-5
+    state: present
+  become: yes
+
+- name: Restart EdgeDB service
+  ansible.builtin.systemd:
+    name: edgedb-server-5.service
+    state: restarted
+  become: yes
+

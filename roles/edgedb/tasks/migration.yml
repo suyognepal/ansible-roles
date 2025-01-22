@@ -1,0 +1,32 @@
+- name: install git package
+  apt:
+    name: git
+  become: yes
+
+- name: Get updated files from git repository
+  git:
+    repo: "https://{{ gituser | gitpassword }}:{{ git_password | urlencode | replace('/', '%2f') }}@{{ git_repo_url }}"
+    dest: "{{ db_instance }}"
+    version: "{{ git_branch }}"
+
+- name: Extract Migration files
+  ansible.builtin.shell: > 
+     cd {{ db_instance }} && edgedb migration extract -I {{ db_instance }} --non-interactive --branch {{ db_branch_instance }}
+
+- name: Create Migration files
+  ansible.builtin.shell: >
+     cd {{ db_instance }} && edgedb migration create -I {{ db_instance }} --non-interactive --branch {{ db_branch_instance }} --allow-unsafe
+  register: migration_create_result
+  failed_when: false  # Ensure this task doesn't fail, it will just set a condition based on the output
+
+- name: Skip migration creation if no schema changes
+  debug:
+    msg: "No schema changes detected. Skipping migration creation."
+  when: migration_create_result.stderr is search('No schema changes detected.')
+
+- name: Apply Migration files
+  ansible.builtin.shell: >
+     cd {{ db_instance }} && edgedb migration apply -I {{ db_instance }} --branch {{ db_branch_instance }}
+  when: migration_create_result.stderr is not search('No schema changes detected.')  # Only apply migration if schema changes were detected
+
+

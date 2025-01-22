@@ -1,0 +1,8 @@
+---
+- import_tasks: install.yml
+- import_tasks: ssl.yml
+- import_tasks: user.yml
+- import_tasks: config.yml  
+- import_tasks: replication.yml
+- import_tasks: addmembers.yaml
+# - import_tasks: uninstall.yml

@@ -1,0 +1,30 @@
+- name: Create A record in Cloudflare
+  uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ dns_zone }}/dns_records"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudfare_token }}"
+      Content-Type: "application/json"
+    body: |
+      {
+        "type": "A",
+        "name": "{{ dns_record }}",
+        "content": "{{ ansible_host }}",
+        "ttl": 60,
+        "proxied": false
+      }
+    body_format: json
+    status_code: 200
+  register: result
+  ignore_errors: true
+
+- name: Check if DNS record already exists
+  debug:
+    msg: "DNS record already exists, skipping creation."
+  when: result.json.errors | length > 0 and result.json.errors[0].code == 81058
+
+- name: Sleep for 60 seconds for TTL to take effect
+  wait_for:
+    timeout: 60
+    delay: 10
+  when: result.json.errors | length == 0

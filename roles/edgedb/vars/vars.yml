@@ -1,0 +1,13 @@
+db_instance: db2
+db_port: 10702
+db_branch_instance: branch1
+gituser: xxxxxxxxxxx
+gitpassword: xxxxxxxxxxxxxxx
+gitbranch: main
+git_repo_url: git.example.com/org/example/edgedb-archive-dbschema.git
+dns_record: db2.postraven.com
+cloudfare_token: xxxxxxxxxxxxxxxxxxxxxxxxxx
+dns_zone: xxxxxxxxxxxxxxxxxxxxxxxxx
+publicip: xxx.xx.xx.xx
+backend_deploy_branch: main
+admin_email: system@system.com

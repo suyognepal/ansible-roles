@@ -1,0 +1,13 @@
+
+- name: Obtain Let's Encrypt SSL certificate
+  command: >
+    certbot --nginx -d "{{ dns_record }}" --non-interactive --agree-tos --email {{ admin_email }}
+  register: certbot_result
+  failed_when: certbot_result.rc != 0 and 'Certificate not yet due for renewal' not in certbot_result.stderr
+  become: yes
+
+- name: Reload Nginx to apply SSL certificate
+  service:
+    name: nginx
+    state: reloaded
+  become: yes 

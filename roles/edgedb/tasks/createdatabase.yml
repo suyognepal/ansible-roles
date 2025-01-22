@@ -1,0 +1,57 @@
+- name: Check if EdgeDB instance exists
+  ansible.builtin.shell: |
+    edgedb instance list | grep -q {{ db_instance }}
+  register: db_instance_exists
+  ignore_errors: true
+
+- name: Create EdgeDB Instance if it doesn't exist
+  ansible.builtin.command: >
+    edgedb instance create {{ db_instance }} --port {{ db_port }}
+  register: edgedb_instance_create
+  when: db_instance_exists.rc != 0
+  failed_when: "'error' in edgedb_instance_create.stderr or edgedb_instance_create.rc != 0"
+
+- name: Skip instance creation if it already exists
+  debug:
+    msg: "EdgeDB instance {{ db_instance }} already exists. Skipping creation."
+  when: db_instance_exists.rc == 0
+
+- name: Start EdgeDB Instance
+  ansible.builtin.command: >
+    edgedb instance start -I {{ db_instance }}
+  when: db_instance_exists.rc != 0
+
+- name: Kill EdgeDB Process on Port {{ db_port }}
+  ansible.builtin.shell: |
+    lsof -i :{{ db_port }} | awk '{print $2}' | grep -E '^[0-9]+$' | xargs -r kill -9
+    sleep 4
+  # ignore_errors: yes
+  become: yes
+  when: db_instance_exists.rc != 0
+  
+- name: Re Start EdgeDB Instance
+  ansible.builtin.command: >
+    edgedb instance start -I {{ db_instance }}
+  when: db_instance_exists.rc != 0
+
+- name: Configure EdgeDB to Listen on All Addresses
+  ansible.builtin.command: >
+    edgedb configure set listen_addresses 0.0.0.0 -I {{ db_instance }}
+  when: db_instance_exists.rc != 0
+
+- name: Check if Database Branch exists
+  ansible.builtin.shell: |
+    edgedb branch list -I {{ db_instance }} | grep -q {{ db_branch_instance }}
+  register: branch_exists
+  ignore_errors: true
+
+- name: Create Database Branch if it doesn't exist
+  ansible.builtin.shell: |
+    edgedb branch create {{ db_branch_instance }} -I {{ db_instance }}
+  when: branch_exists.rc != 0
+
+- name: Skip branch creation if it already exists
+  debug:
+    msg: "Database branch {{ db_branch_instance }} already exists. Skipping creation."
+  when: branch_exists.rc == 0
+

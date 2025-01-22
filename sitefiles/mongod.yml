@@ -1,0 +1,9 @@
+# ansible/sitefiles/mongod.yml
+---
+- name: Set up MongoDB
+  hosts: local
+  remote_user: root
+  roles:
+    - role: ../roles/mongodb
+  vars_files:
+    - ../vars/main.yml

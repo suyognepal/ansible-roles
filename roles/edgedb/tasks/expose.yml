@@ -1,0 +1,42 @@
+- name: Install required packages
+  apt:
+    name:
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+    state: present
+    update_cache: true
+  notify: start and enable nginx
+  become: yes
+
+- name: Configure Nginx for EdgeDB
+  copy:
+    dest: /etc/nginx/sites-available/{{ backend_deploy_branch }}
+    content: |
+      server {
+          listen 80;
+          server_name {{ dns_record }};
+          location / {
+              proxy_pass http://127.0.0.1:{{ db_port }};
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+      }
+  notify: restart nginx
+  become: yes
+
+- name: Enable Nginx configuration
+  file:
+    src: /etc/nginx/sites-available/{{ backend_deploy_branch }}
+    dest: /etc/nginx/sites-enabled/{{ backend_deploy_branch }}
+    state: link
+  become: yes
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+  become: yes

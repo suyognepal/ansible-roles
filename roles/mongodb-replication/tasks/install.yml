@@ -1,0 +1,59 @@
+---
+- name: Gather OS facts
+  setup:
+
+- name: Install MongoDB on Ubuntu
+  when: ansible_facts['distribution'] == 'Ubuntu'
+  block:
+    - name: Download MongoDB GPG key
+      get_url:
+        url: "https://www.mongodb.org/static/pgp/server-{{ mongodb_version }}.asc"
+        dest: /tmp/mongodb-server-{{ mongodb_version }}.asc
+
+    - name: Add MongoDB GPG key
+      command: gpg --no-default-keyring --keyring /usr/share/keyrings/mongodb-server-{{ mongodb_version }}.gpg --import /tmp/mongodb-server-{{ mongodb_version }}.asc
+      args:
+        creates: /usr/share/keyrings/mongodb-server-{{ mongodb_version }}.gpg
+
+    - name: Add MongoDB repository
+      shell: |
+        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-{{ mongodb_version }}.gpg ] https://repo.mongodb.org/apt/ubuntu {{ ansible_facts['distribution_release'] }}/mongodb-org/{{ mongodb_version }} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-{{ mongodb_version }}.list
+      args:
+        creates: /etc/apt/sources.list.d/mongodb-org-{{ mongodb_version }}.list
+
+    - name: Update APT package index
+      apt:
+        update_cache: yes
+    - name: Install MongoDB
+      apt:
+        name: mongodb-org
+        state: latest
+
+    - name: Enable and start MongoDB
+      service:
+        name: mongod
+        state: started
+        enabled: yes
+
+- name: Install MongoDB on CentOS
+  when: ansible_facts['distribution'] == 'CentOS'
+  block:
+    - name: Add MongoDB repository
+      yum_repository:
+        name: MongoDB
+        description: MongoDB Repository
+        baseurl: "https://repo.mongodb.org/yum/centos/7/mongodb-org/{{ mongodb_version }}/x86_64/"
+        gpgcheck: 1
+        gpgkey: "https://www.mongodb.org/static/pgp/server-{{ mongodb_version }}.asc"
+        enabled: 1
+
+    - name: Install MongoDB
+      yum:
+        name: mongodb-org
+        state: latest
+        
+    - name: Enable and start MongoDB
+      service:
+        name: mongod
+        state: started
+        enabled: yes

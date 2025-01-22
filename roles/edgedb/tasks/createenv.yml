@@ -1,0 +1,34 @@
+- name: Get Credentials of EdgeDB
+  shell: |
+    edgedb instance credentials -I {{ db_instance }} --branch {{ db_branch_instance }} --json
+  register: edgedb_credentials
+
+- name: Parse EdgeDB credentials
+  set_fact:
+    edgedb_parsed: "{{ edgedb_credentials.stdout | from_json }}"
+
+- name: Gather facts to get the IP address
+  ansible.builtin.setup:
+    gather_subset:
+      - network
+  register: network_facts
+
+- name: Set the server IP address as a fact
+  set_fact:
+    server_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+
+- name: Create .env file in JSON format locally
+  local_action:
+    module: copy
+    dest: "../../.env"
+    content: |
+      EDGEDB='{
+        "HOST": "{{ server_ip }}",
+        "PORT": {{ edgedb_parsed.port }},
+        "USER": "{{ edgedb_parsed.user }}",
+        "PASSWORD": "{{ edgedb_parsed.password }}",
+        "DBNAME": "{{ db_instance }}",
+        "BRANCH": "{{ db_branch_instance }}",
+        "TLS_CA": {{ edgedb_parsed.tls_ca | replace('\n', '\\n') | to_json }},
+        "TLS_SECURITY": "{{ edgedb_parsed.tls_security }}"
+      }'

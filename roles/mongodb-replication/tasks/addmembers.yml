@@ -1,0 +1,61 @@
+- name: Gather facts about all hosts
+  setup:
+
+- name: Set primary node host for running tasks
+  set_fact:
+    initial_primary_node: "{{ hostvars[item]['ansible_host'] }}"
+  when: hostvars[item].initial_primary is defined and hostvars[item].initial_primary
+  loop: "{{ groups['all'] }}"
+  run_once: true
+  delegate_to: localhost
+
+- name: Get current replica set configuration
+  shell: |
+    mongosh --host "{{ initial_primary_node }}" --port 27017 -u "{{ admin_user.username }}" -p "{{ admin_user.password }}" --authenticationDatabase admin --eval 'rs.conf().members'
+  register: rs_conf
+  delegate_to: "{{ initial_primary_node }}"
+  changed_when: false
+
+- name: Parse current replica set members
+  set_fact:
+    current_members: "{{ rs_conf.stdout | from_yaml }}"
+
+- name: Extract member hosts
+  set_fact:
+    existing_member_hosts: "{{ current_members | map(attribute='host') | list }}"
+
+
+- name: Determine missing members
+  set_fact:
+    missing_members: >
+      {{
+        members | selectattr('host', 'search', '^((?!' + existing_member_hosts | join('|') + ').)*$') | list
+      }}
+
+- name: Check if the current node is PRIMARY
+  shell: |
+    mongosh --host "{{ initial_primary_node }}" --port 27017 -u "{{ admin_user.username }}" -p "{{ admin_user.password }}" --authenticationDatabase admin --eval 'rs.isMaster().ismaster'
+  register: is_primary
+  delegate_to: "{{ initial_primary_node }}"
+  changed_when: false
+
+- name: Find the primary node if the current node is not primary
+  when: is_primary.stdout | trim != "true"
+  shell: |
+    mongosh --host "{{ initial_primary_node }}" --port 27017 -u "{{ admin_user.username }}" -p "{{ admin_user.password }}" --authenticationDatabase admin --eval 'rs.isMaster().primary'
+  register: primary_node_host
+  delegate_to: "{{ initial_primary_node }}"
+  changed_when: false
+
+- name: Set the primary node to the result of rs.isMaster().primary
+  when: is_primary.stdout | trim != "true"
+  set_fact:
+    primary_node: "{{ primary_node_host.stdout | trim }}"
+
+- name: Add missing members to the replica set
+  shell: |
+    mongosh --host "{{ primary_node }}" --port 27017 -u "{{ admin_user.username }}" -p "{{ admin_user.password }}" --authenticationDatabase admin --eval 'rs.add("{{ item.host }}")'
+  loop: "{{ missing_members }}"
+  delegate_to: "{{ initial_primary_node }}"
+  when: missing_members | length > 0
+  run_once: true

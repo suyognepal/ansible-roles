@@ -1,0 +1,42 @@
+- name: Gather facts about all hosts
+  setup:
+
+- name: Set primary node host for running tasks
+  set_fact:
+    primary_node: "{{ hostvars[item]['ansible_host'] }}"
+  when: hostvars[item].initial_primary is defined and hostvars[item].initial_primary
+  loop: "{{ groups['local'] }}"
+  run_once: true
+  delegate_to: localhost
+
+- name: Check if replica set is initialized
+  shell: |
+    mongosh --host "{{ primary_node }}" --port 27017 -u "{{ admin_user.username }}" -p "{{ admin_user.password }}" --authenticationDatabase admin --eval 'rs.status()'
+  register: rs_status
+  delegate_to: "{{ primary_node }}"
+  failed_when: rs_status.rc != 0 and 'no replset config has been received' not in rs_status.stderr
+
+- name: Initialize replica set if not already initialized
+  shell: |
+    mongosh --host "{{ primary_node }}" --port 27017 -u "{{ admin_user.username }}" -p "{{ admin_user.password }}" --authenticationDatabase admin <<EOF
+    rs.initiate({
+      _id: "{{ replica_set_name }}",
+      members: [
+        {% for member in members %}
+        { _id: {{ member._id }}, host: "{{ member.host }}" }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    })
+    EOF
+  delegate_to: "{{ primary_node }}"
+  when: rs_status.rc != 0 and 'no replset config has been received' in rs_status.stderr
+  run_once: true
+  args:
+    executable: /bin/bash
+
+- name: Wait for replica set to initialize
+  shell: |
+    sleep 10
+  delegate_to: localhost
+  when: rs_status.rc != 0 and 'no replset config has been received' in rs_status.stderr
+

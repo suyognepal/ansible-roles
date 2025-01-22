@@ -1,0 +1,126 @@
+---
+
+- name: Create directory for SSL key on localhost
+  file:
+    path: /tmp/mongodb/keys
+    state: directory
+  delegate_to: localhost
+  
+- name: Generate SSL key
+  command: openssl rand -base64 756
+  register: ssl_key
+  delegate_to: localhost
+
+- name: Write SSL key to file on localhost
+  copy:
+    content: "{{ ssl_key.stdout }}"
+    dest: /tmp/mongodb/keys/mongo-key
+  delegate_to: localhost
+
+- name: Slurp SSL key from localhost
+  slurp:
+    src: /tmp/mongodb/keys/mongo-key
+  register: slurped_ssl_key
+  delegate_to: localhost
+
+- name: Ensure directory for SSL key exists on all nodes
+  file:
+    path: /etc/mongodb/keys
+    state: directory
+    mode: '0755'
+    owner: mongodb
+    group: mongodb
+
+- name: Write SSL key to all nodes
+  copy:
+    content: "{{ slurped_ssl_key['content'] | b64decode }}"
+    dest: /etc/mongodb/keys/mongo-key
+    owner: mongodb
+    group: mongodb
+    mode: '0400'
+
+- name: Remove SSL key file from localhost
+  file:
+    path: /tmp/mongodb/keys/mongo-key
+    state: absent
+  delegate_to: localhost
+
+- name: Retrieve SSL key from HashiCorp Vault using curl
+  shell: |
+    curl -sk -H "X-Vault-Token: {{ vault_token }}" \
+         {{ vault_address }}/v1/{{ vault_secrets_path }}
+  register: vault_get_response
+  failed_when: false
+  run_once: true
+
+- name: Check if SSL key already exists in Vault
+  set_fact:
+    ssl_key_exists: "{{ 'ssl_key' in (vault_get_response.stdout | from_json).data.data }}"
+  failed_when: false
+  run_once: true
+
+- name: Generate SSL key
+  command: openssl rand -base64 756
+  register: ssl_key
+  when: not ssl_key_exists
+
+- name: Create JSON payload for Vault
+  copy:
+    content: |
+      {
+        "data": {
+          "ssl_key": "{{ ssl_key.stdout }}"
+        }
+      }
+    dest: /tmp/payload.json
+  when: not ssl_key_exists
+  run_once: true
+  delegate_to: localhost
+
+- name: Store SSL key in HashiCorp Vault using curl
+  shell: |
+    curl -sk -X POST \
+         -H "X-Vault-Token: {{ vault_token }}" \
+         --data @/tmp/payload.json \
+         {{ vault_address }}/v1/{{ vault_secrets_path }}
+  register: vault_response
+  when: not ssl_key_exists
+  run_once: true
+  delegate_to: localhost
+
+- name: Debug Vault response after storing SSL key
+  debug:
+    msg: "{{ vault_response.stdout }}"
+  when: not ssl_key_exists
+  run_once: true
+  delegate_to: localhost
+
+- name: Clean up JSON payload
+  file:
+    path: /tmp/payload.json
+    state: absent
+  when: not ssl_key_exists
+  run_once: true
+  delegate_to: localhost
+
+- name: Ensure directory for SSL key exists
+  file:
+    path: /etc/mongodb/keys
+    state: directory
+    mode: '0755'
+    owner: mongodb
+    group: mongodb
+
+- name: Parse SSL key from Vault response
+  set_fact:
+    ssl_key: "{{ (vault_get_response.stdout | from_json).data.data.ssl_key }}"
+  when: ssl_key_exists
+
+- name: Write SSL key to all nodes
+  copy:
+    content: "{{ ssl_key }}"
+    dest: /etc/mongodb/keys/mongo-key
+    owner: mongodb
+    group: mongodb
+    mode: '0400'
+  when: ssl_key_exists
