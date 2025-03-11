@@ -4,6 +4,7 @@ This playbook contains multiple roles for installing and configuring EdgeDB and 
 
 * `roles/edgedb/`: contains roles for installing and configuring EdgeDB
 * `roles/mongodb-replication/`: contains roles for installing and configuring MongoDB in a replication set
+* `roles/openvpn/`: contains roles for installing and configuring OpenVPN server.
 
 To run the playbooks, use the following command:
 
