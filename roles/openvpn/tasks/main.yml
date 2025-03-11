@@ -1,0 +1,32 @@
+---
+- name: Including install.yml OpenVPN tasks
+  include_tasks: install.yml
+
+- name: Verifying easyrsa exist
+  stat:
+    path: "/{{ base_directory }}/easy-rsa/easyrsa"
+  register: rsa
+
+- name: Including easy-rsa.yml for OpenVPN setup
+  include_tasks: easy-rsa.yml
+  when: not rsa.stat.exists
+
+- name: Including server_keys.yml for OpenVPN setup
+  include_tasks: server_keys.yml
+
+- name: Including config.yml for OpenVPN setup
+  include_tasks: config.yml
+
+- name: Including client_keys.yml for OpenVPN setup
+  include_tasks: client_keys.yml
+  tags:
+    - generate_client_keys
+
+- name: Including revoke.yml for OpenVpn setup
+  include_tasks: revoke.yml
+  tags:
+    - revoke_client_keys
+
+- name: Including firewall.yml for OpenVPN setup
+  include_tasks: firewall.yml
+...

@@ -1,0 +1,45 @@
+---
+- name: Installing openvpn package and updating cache for Ubuntu & Debian
+  apt:
+    pkg: 
+      - openvpn
+      - expect  # Install expect package
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+
+- name: Install EPEL repository for CentOS, RedHat & Amazon
+  yum:
+    name: epel-release
+    state: present
+  when: ansible_distribution in ["CentOS", "RedHat", "Amazon"]
+
+- name: Install openvpn and expect for CentOS, RedHat & Amazon
+  yum:
+    name:
+      - openvpn
+      - expect  # Install expect package
+    state: present
+  when: ansible_distribution in ["CentOS", "RedHat", "Amazon"]
+
+- name: Ensure group 'nogroup' is present
+  group:
+    name: nogroup
+    state: present
+    system: true
+  when: ansible_distribution in ["CentOS", "RedHat", "Amazon"]
+
+- name: Changing the ownership of openvpn client for CentOS, RedHat & Amazon
+  file:
+    path: /etc/openvpn/client
+    owner: root
+    group: root
+  when: ansible_distribution in ["CentOS", "RedHat", "Amazon"]
+
+- name: Changing the ownership of openvpn server for CentOS, RedHat & Amazon
+  file:
+    path: /etc/openvpn/server
+    owner: root
+    group: root
+  when: ansible_distribution in ["CentOS", "RedHat", "Amazon"]
+...
