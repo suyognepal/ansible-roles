@@ -14,15 +14,13 @@ Directory Layout
 ----------------
 ```
 ├── clientlist
-├── defaults
-│   └── main.yml
+├── vars
+│   └── vars.yml
 ├── files
 │   └── make_config.sh
 ├── handlers
 │   └── main.yml
 ├── media
-├── meta
-│   └── main.yaml
 ├── README.md
 ├── revokelist
 ├── tasks
